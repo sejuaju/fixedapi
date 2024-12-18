@@ -94,6 +94,10 @@ def get_available_coins():
 def get_coin_history(symbol, timeframe):
     """Mengambil data historis coin berdasarkan symbol dan timeframe"""
     try:
+        # Debug info
+        print(f"R2_BUCKET: {os.getenv('R2_BUCKET')}")
+        print(f"R2_ENDPOINT: {os.getenv('R2_ENDPOINT')}")
+        
         # Ambil parameter limit dari query string
         limit = request.args.get('limit', type=int)
         if not limit and timeframe == '1m':
@@ -107,25 +111,34 @@ def get_coin_history(symbol, timeframe):
             )
 
         # Ambil data dari R2
+        key = f'{timeframe}/{symbol.lower()}.json'
+        print(f"Accessing file: {key}")
+
         try:
-            key = f'{timeframe}/{symbol.lower()}.json'
             obj = s3.get_object(
                 Bucket=os.getenv('R2_BUCKET'),
                 Key=key
             )
+            print(f"File size: {obj['ContentLength']} bytes")
             
-            # Stream data untuk file besar
-            if timeframe == '1m':
-                raw_data = json.loads(obj['Body'].read(1024 * 1024))  # Read first 1MB
+            # Handle large files
+            if obj['ContentLength'] > 100 * 1024 * 1024:  # If file > 100MB
+                print("Large file detected, using streaming")
+                raw_data = json.loads(obj['Body'].read(10 * 1024 * 1024))  # Read first 10MB
             else:
                 raw_data = json.loads(obj['Body'].read())
-        except Exception as e:
+                
+        except s3.exceptions.NoSuchKey as e:
+            print(f"File not found error: {str(e)}")
             return app.response_class(
-                response=json.dumps({'error': f'No data found for {symbol} with timeframe {timeframe}'}, indent=2),
+                response=json.dumps({
+                    'error': f'No data found for {symbol} with timeframe {timeframe}',
+                    'details': str(e)
+                }, indent=2),
                 status=404,
                 mimetype='application/json'
             )
-            
+        
         symbol_upper = symbol.upper()
         coin_data = raw_data[symbol_upper]
         
@@ -157,7 +170,7 @@ def get_coin_history(symbol, timeframe):
                 "source": "r2",
                 "source_id": coin_data.get('metadata', {}).get('exchange_listings', {}).get('best_pair')
             })
-            
+        
         # Format response dengan metadata
         response_data = {
             "data": formatted_data,
@@ -169,7 +182,7 @@ def get_coin_history(symbol, timeframe):
                 "limit_applied": limit if limit else None
             }
         }
-            
+        
         return app.response_class(
             response=json.dumps(response_data, indent=2),
             status=200,
