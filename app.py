@@ -292,5 +292,5 @@ def get_coin_by_zap_id(zap_id, timeframe):
         )
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 3001))
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
