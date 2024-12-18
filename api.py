@@ -112,18 +112,23 @@ def get_coin_history(symbol, timeframe):
             if timeframe == '1m':
                 # Gunakan ijson untuk streaming parse
                 parser = ijson.parse(obj['Body'])
-                data = {symbol.upper(): {'1m': []}}
+                data = {symbol.upper(): {'1m': [], 'zap_id': None, 'metadata': {}}}
                 
                 # Ambil hanya data yang diperlukan
                 count = 0
                 max_items = limit or 100
                 
                 for prefix, event, value in parser:
-                    if prefix.endswith('.1m.item'):
-                        data[symbol.upper()]['1m'].append(value)
-                        count += 1
-                        if count >= max_items:
-                            break
+                    # Ambil metadata dulu
+                    if prefix.endswith('.zap_id'):
+                        data[symbol.upper()]['zap_id'] = value
+                    elif prefix.endswith('.metadata'):
+                        data[symbol.upper()]['metadata'] = value
+                    # Kemudian ambil data historis
+                    elif prefix.endswith('.1m.item'):
+                        if count < max_items:
+                            data[symbol.upper()]['1m'].append(value)
+                            count += 1
             else:
                 data = json.loads(obj['Body'].read())
         except s3.exceptions.NoSuchKey as e:
