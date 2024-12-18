@@ -5,6 +5,7 @@ from collections import OrderedDict
 from json import JSONEncoder
 import boto3
 from botocore.client import Config
+import ijson
 
 class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):
@@ -96,7 +97,6 @@ def get_coin_history(symbol, timeframe):
     try:
         # Debug info
         print(f"R2_BUCKET: {os.getenv('R2_BUCKET')}")
-        print(f"R2_ENDPOINT: {os.getenv('R2_ENDPOINT')}")
         
         # Ambil parameter limit dari query string
         limit = request.args.get('limit', type=int)
@@ -119,14 +119,21 @@ def get_coin_history(symbol, timeframe):
                 Bucket=os.getenv('R2_BUCKET'),
                 Key=key
             )
-            print(f"File size: {obj['ContentLength']} bytes")
             
-            # Handle large files
-            if obj['ContentLength'] > 100 * 1024 * 1024:  # If file > 100MB
-                print("Large file detected, using streaming")
-                raw_data = json.loads(obj['Body'].read(10 * 1024 * 1024))  # Read first 10MB
-            else:
-                raw_data = json.loads(obj['Body'].read())
+            # Use streaming parser for large files
+            parser = ijson.parse(obj['Body'])
+            data = {}
+            current_key = None
+            
+            for prefix, event, value in parser:
+                if prefix == '' and event == 'map_key':
+                    current_key = value
+                    data[current_key] = {}
+                elif prefix.endswith('.1m') and current_key:
+                    if prefix not in data[current_key]:
+                        data[current_key]['1m'] = []
+                    if len(data[current_key]['1m']) < (limit or 100):
+                        data[current_key]['1m'].append(value)
                 
         except s3.exceptions.NoSuchKey as e:
             print(f"File not found error: {str(e)}")
@@ -140,7 +147,7 @@ def get_coin_history(symbol, timeframe):
             )
         
         symbol_upper = symbol.upper()
-        coin_data = raw_data[symbol_upper]
+        coin_data = data[symbol_upper]
         
         # Format data sesuai timeframe yang diminta
         formatted_data = []
