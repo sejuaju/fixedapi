@@ -98,7 +98,8 @@ def get_coin_history(symbol, timeframe):
         # Ambil parameter limit
         limit = request.args.get('limit', type=int)
         if not limit:
-            limit = 5 if timeframe == '1m' else None
+            # Default limit 100 untuk 1m, None untuk lainnya
+            limit = 100 if timeframe == '1m' else None
 
         key = f'{timeframe}/{symbol.lower()}.json'
         
@@ -110,22 +111,14 @@ def get_coin_history(symbol, timeframe):
             
             # Gunakan satu metode parsing saja
             if timeframe == '1m':
-                # Gunakan ijson untuk 1m
-                parser = ijson.parse(obj['Body'])
-                data = {}
-                current_key = None
-                
-                for prefix, event, value in parser:
-                    if prefix == '' and event == 'map_key':
-                        current_key = value
-                        data[current_key] = {}
-                    elif prefix.endswith('.1m') and current_key:
-                        if '1m' not in data[current_key]:
-                            data[current_key]['1m'] = []
-                        if len(data[current_key]['1m']) < (limit or 5):
-                            data[current_key]['1m'].append(value)
+                # Batasi ukuran read untuk 1m
+                raw_data = json.loads(obj['Body'].read(1024 * 1024))  # Read first 1MB
+                data = {
+                    symbol.upper(): {
+                        '1m': raw_data[symbol.upper()]['1m'][-limit:]  # Ambil n data terakhir
+                    }
+                }
             else:
-                # Gunakan json.loads untuk 1h dan 1d
                 data = json.loads(obj['Body'].read())
         except s3.exceptions.NoSuchKey as e:
             print(f"File not found error: {str(e)}")
