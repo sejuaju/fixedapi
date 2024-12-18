@@ -1,4 +1,8 @@
-"__pycache__/
+@"
+__pycache__/
 .env
 venv/
-.git/" | Out-File -Encoding UTF8 .gitignore
+.git/
+railway.toml
+nixpacks.toml
+"@ | Out-File -Encoding UTF8 .gitignore
