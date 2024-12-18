@@ -106,9 +106,11 @@ def get_coin_history(symbol, timeframe):
 
         # Ambil data dari R2
         try:
+            # Sesuaikan nama file untuk 1m
+            filename = f"{symbol.lower()}json" if timeframe == '1m' else f"{symbol.lower()}.json"
             obj = s3.get_object(
                 Bucket=os.getenv('R2_BUCKET'),
-                Key=f'{timeframe}/{symbol.lower()}.json'
+                Key=f'{timeframe}/{filename}'
             )
             raw_data = json.loads(obj['Body'].read())
         except Exception as e:
