@@ -1,0 +1,4 @@
+"__pycache__/
+.env
+venv/
+.git/" | Out-File -Encoding UTF8 .gitignore
