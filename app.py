@@ -96,6 +96,8 @@ def get_coin_history(symbol, timeframe):
     try:
         # Ambil parameter limit dari query string
         limit = request.args.get('limit', type=int)
+        if not limit and timeframe == '1m':
+            limit = 100  # Default limit untuk 1m data
         
         if timeframe not in ['1m', '1h', '1d']:
             return app.response_class(
@@ -106,13 +108,17 @@ def get_coin_history(symbol, timeframe):
 
         # Ambil data dari R2
         try:
-            # Gunakan format yang sama untuk semua timeframe
             key = f'{timeframe}/{symbol.lower()}.json'
             obj = s3.get_object(
                 Bucket=os.getenv('R2_BUCKET'),
                 Key=key
             )
-            raw_data = json.loads(obj['Body'].read())
+            
+            # Stream data untuk file besar
+            if timeframe == '1m':
+                raw_data = json.loads(obj['Body'].read(1024 * 1024))  # Read first 1MB
+            else:
+                raw_data = json.loads(obj['Body'].read())
         except Exception as e:
             return app.response_class(
                 response=json.dumps({'error': f'No data found for {symbol} with timeframe {timeframe}'}, indent=2),
