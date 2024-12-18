@@ -95,46 +95,38 @@ def get_available_coins():
 def get_coin_history(symbol, timeframe):
     """Mengambil data historis coin berdasarkan symbol dan timeframe"""
     try:
-        # Debug info
-        print(f"R2_BUCKET: {os.getenv('R2_BUCKET')}")
-        
-        # Ambil parameter limit dari query string
+        # Ambil parameter limit
         limit = request.args.get('limit', type=int)
-        if not limit and timeframe == '1m':
-            limit = 100  # Default limit untuk 1m data
-        
-        if timeframe not in ['1m', '1h', '1d']:
-            return app.response_class(
-                response=json.dumps({'error': 'Invalid timeframe. Use 1m, 1h or 1d'}, indent=2),
-                status=400,
-                mimetype='application/json'
-            )
+        if not limit:
+            limit = 5 if timeframe == '1m' else None
 
-        # Ambil data dari R2
         key = f'{timeframe}/{symbol.lower()}.json'
-        print(f"Accessing file: {key}")
-
+        
         try:
             obj = s3.get_object(
                 Bucket=os.getenv('R2_BUCKET'),
                 Key=key
             )
             
-            # Use streaming parser for large files
-            parser = ijson.parse(obj['Body'])
-            data = {}
-            current_key = None
-            
-            for prefix, event, value in parser:
-                if prefix == '' and event == 'map_key':
-                    current_key = value
-                    data[current_key] = {}
-                elif prefix.endswith('.1m') and current_key:
-                    if prefix not in data[current_key]:
-                        data[current_key]['1m'] = []
-                    if len(data[current_key]['1m']) < (limit or 100):
-                        data[current_key]['1m'].append(value)
+            # Gunakan satu metode parsing saja
+            if timeframe == '1m':
+                # Gunakan ijson untuk 1m
+                parser = ijson.parse(obj['Body'])
+                data = {}
+                current_key = None
                 
+                for prefix, event, value in parser:
+                    if prefix == '' and event == 'map_key':
+                        current_key = value
+                        data[current_key] = {}
+                    elif prefix.endswith('.1m') and current_key:
+                        if '1m' not in data[current_key]:
+                            data[current_key]['1m'] = []
+                        if len(data[current_key]['1m']) < (limit or 5):
+                            data[current_key]['1m'].append(value)
+            else:
+                # Gunakan json.loads untuk 1h dan 1d
+                data = json.loads(obj['Body'].read())
         except s3.exceptions.NoSuchKey as e:
             print(f"File not found error: {str(e)}")
             return app.response_class(
