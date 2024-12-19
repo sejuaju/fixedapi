@@ -1,4 +1,3 @@
-import json
 import boto3
 import ijson
 from botocore.client import Config
@@ -6,11 +5,7 @@ import os
 from models import engine, PriceData1m, PriceData1h, PriceData1d
 from sqlalchemy.orm import Session
 from datetime import datetime
-from dotenv import load_dotenv
 from dateutil.parser import parse
-
-# Load environment variables
-load_dotenv()
 
 # Setup S3/R2 client
 s3 = boto3.client('s3',

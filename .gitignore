@@ -2,7 +2,4 @@
 __pycache__/
 .env
 venv/
-.git/
-railway.toml
-nixpacks.toml
-"@ | Out-File -Encoding UTF8 .gitignore
+*.db

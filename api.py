@@ -1,10 +1,12 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from models import engine, PriceData1m, PriceData1h, PriceData1d
 from sqlalchemy.orm import Session
 from datetime import datetime
 import os
 
 app = Flask(__name__)
+CORS(app)
 
 def get_price_data_class(timeframe):
     if timeframe == '1m':
